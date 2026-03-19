@@ -1131,8 +1131,8 @@ const ViewPaineis = ({ appData, onIrParaItens, onIrParaEscola }) => {
   // 3. Evolução média por polo (1ª Avaliação → 2ª Avaliação)
   const evolucaoPorPolo = polos.map(p => ({
     name: p.polo.length>12?p.polo.slice(0,12)+'…':p.polo,
-    1ª Avaliação: p.prepara ? +p.prepara.toFixed(2) : 0,
-    'Avaliação': p.aval1 ? +p.aval1.toFixed(2) : 0,
+    '1ª Avaliação': p.prepara ? +p.prepara.toFixed(2) : 0,
+    '2ª Avaliação': p.aval1 ? +p.aval1.toFixed(2) : 0,
     variacao: p.prepara ? +(p.aval1 - p.prepara).toFixed(2) : 0
   }));
 
