@@ -471,7 +471,7 @@ const ViewPolo = ({ appData, poloData, onDrillDown }) => {
 
       {/* Ranking de escolas do polo */}
       <div className="pointer-events-none">
-      <MiniRanking
+      <div className="pointer-events-none"><MiniRanking
         titulo={`Ranking de Escolas — ${poloData?.polo}`}
         itens={rankingEscolas}
         emptyMsg="Sem dados suficientes para ranking."
@@ -486,7 +486,7 @@ const ViewPolo = ({ appData, poloData, onDrillDown }) => {
             </div>
           </div>
         )}
-      />
+      /></div>
       </div>
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-4 py-3 border-b border-slate-100"><h3 className="font-bold text-lotus-dark">Escolas do Polo</h3><p className="text-xs text-slate-400 mt-0.5">Toque para detalhar</p></div>
@@ -532,7 +532,7 @@ const ViewEscola = ({ appData, escolaData, onDrillDown }) => {
     const avancados=alunos.filter(a=>a.status==='Avançado').length;
     const risco=alunos.filter(a=>a.status==='Risco').length;
     return {_label:t.turma, _sub:`${alunos.length} alunos`, _valor:fmt(media), media, mediaLP, mediaMat, avancados, risco, total:alunos.length, turma:t.turma};
-  }).filter(t=>t.total>0).sort((a,b)=>b.media-a.media), [appData,turmas]);
+  }).filter(t=>t.total>0).sort((a,b)=>b.media-a.media).map((t,i,arr)=>{ const nd=[...new Set(arr.map(x=>x.media||0))].sort((x,y)=>y-x); return {...t,_posicao:nd.indexOf(t.media||0)+1}; }), [appData,turmas]);
 
   // Ranking de alunos da escola
   const rankingAlunos = useMemo(()=>todosAlunos
@@ -556,7 +556,7 @@ const ViewEscola = ({ appData, escolaData, onDrillDown }) => {
       </div>
 
       {/* Ranking de turmas */}
-      <MiniRanking
+      <div className="pointer-events-none"><MiniRanking
         titulo={`Ranking de Turmas — ${escolaData?.escola}`}
         itens={rankingTurmas}
         renderLinha={(item)=>(
@@ -571,10 +571,10 @@ const ViewEscola = ({ appData, escolaData, onDrillDown }) => {
             <span className={`text-sm font-black shrink-0 ${notaColor(item.media)}`}>{fmt(item.media)}</span>
           </div>
         )}
-      />
+      /></div>
 
       {/* Ranking de alunos da escola */}
-      <MiniRanking
+      <div className="pointer-events-none"><MiniRanking
         titulo={`Ranking de Alunos — ${escolaData?.escola}`}
         itens={rankingAlunos}
         renderLinha={(item)=>{
@@ -594,7 +594,7 @@ const ViewEscola = ({ appData, escolaData, onDrillDown }) => {
             </div>
           );
         }}
-      />
+      /></div>
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-4 py-3 border-b border-slate-100">
           <h3 className="font-bold text-lotus-dark">Turmas da Escola</h3>
@@ -802,7 +802,7 @@ const ViewTurma = ({ appData, turmaData, onVerAluno }) => {
                 <span className="text-center">Geral</span>
                 <span/>
               </div>
-              {[...alunos].sort((a,b)=>(b.geralAtual||0)-(a.geralAtual||0)).map((a,i)=>{
+              {[...alunos].sort((a,b)=>(b.geralAtual||0)-(a.geralAtual||0)).map((a,i,arr)=>{ const notasDistintas=[...new Set(arr.map(x=>x.geralAtual||0))].sort((x,y)=>y-x); a={...a,_posicao:notasDistintas.indexOf(a.geralAtual||0)+1};
                 const sc=STATUS[a.status]||STATUS.Adequado;
                 const medalhas=['🥇','🥈','🥉'];
                 return (
