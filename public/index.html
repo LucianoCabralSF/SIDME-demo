@@ -2069,7 +2069,7 @@ const ViewRankings = ({ appData, onVerAluno, setBreadcrumbs }) => {
     const risco=alunos.filter(a=>a.status==='Risco').length;
     const polo=polos.find(p=>(appData?.escolasPorPolo?.[p.id]||[]).some(x=>x.id===e.id));
     return {...e, media:+media.toFixed(2), mediaLP:+mediaLP.toFixed(2), mediaMat:+mediaMat.toFixed(2), avancados, risco, total:alunos.length, polo:polo?.polo||'—'};
-  }).filter(e=>e.total>0).sort((a,b)=>b.media-a.media), [appData, todasEscolas, polos]);
+  }).filter(e=>e.total>0).sort((a,b)=>b.media-a.media).map((e,i,arr)=>{ const nd=[...new Set(arr.map(x=>x.media||0))].sort((x,y)=>y-x); return {...e,_posicao:nd.indexOf(e.media||0)+1}; }), [appData, todasEscolas, polos]);
 
   const polosDisponiveis = ['todos', ...Array.from(new Set(escolasComMedia.map(e=>e.polo))).sort()];
   const escolasFiltradas = filtroPoloRank==='todos' ? escolasComMedia : escolasComMedia.filter(e=>e.polo===filtroPoloRank);
@@ -2161,10 +2161,10 @@ const ViewRankings = ({ appData, onVerAluno, setBreadcrumbs }) => {
                   <span className="text-right">Média</span>
                 </div>
                 {escolasFiltradas.map((e,i)=>(
-                  <div key={i} className={`border-b border-slate-100 last:border-0 ${a._posicao<=3?'bg-white':'hover:bg-slate-50'} transition-colors`}>
+                  <div key={i} className={`border-b border-slate-100 last:border-0 ${e._posicao<=3?'bg-white':'hover:bg-slate-50'} transition-colors`}>
                     <div className="hidden lg:grid px-4 py-2.5 items-center"
                       style={{gridTemplateColumns:'40px 1fr 120px 70px 70px 70px 70px 80px'}}>
-                      <span className={`text-sm font-black ${a._posicao===1?'text-yellow-500':a._posicao===2?'text-slate-400':a._posicao===3?'text-amber-700':'text-slate-300'}`}>{a._posicao<=3?medalhas[a._posicao-1]:`${a._posicao}º`}</span>
+                      <span className={`text-sm font-black ${e._posicao===1?'text-yellow-500':e._posicao===2?'text-slate-400':e._posicao===3?'text-amber-700':'text-slate-300'}`}>{e._posicao<=3?medalhas[e._posicao-1]:`${e._posicao}º`}</span>
                       <div className="min-w-0"><p className="text-xs font-bold text-slate-800 truncate">{e.escola}</p><p className="text-[11px] text-slate-500">{e.total} alunos</p></div>
                       <span className="text-[10px] text-slate-500 truncate">{e.polo.length>14?e.polo.slice(0,14)+'…':e.polo}</span>
                       <span className={`text-xs font-black text-center ${notaColor(e.mediaLP)}`}>{fmt(e.mediaLP)}</span>
@@ -2173,8 +2173,8 @@ const ViewRankings = ({ appData, onVerAluno, setBreadcrumbs }) => {
                       <span className="text-xs font-bold text-center text-rose-500">{e.risco}</span>
                       <span className={`text-sm font-black text-right ${notaColor(e.media)}`}>{fmt(e.media)}</span>
                     </div>
-                    <div className="lg:hidden px-4 py-3 flex items-center gap-3 cursor-pointer" onClick={()=>onVerAluno&&onVerAluno(a)}>
-                      <span className={`text-base font-black shrink-0 w-7 ${a._posicao===1?'text-yellow-500':a._posicao===2?'text-slate-400':a._posicao===3?'text-amber-700':'text-slate-300'}`}>{a._posicao<=3?medalhas[a._posicao-1]:`${a._posicao}º`}</span>
+                    <div className="lg:hidden px-4 py-3 flex items-center gap-3 ">
+                      <span className={`text-base font-black shrink-0 w-7 ${e._posicao===1?'text-yellow-500':e._posicao===2?'text-slate-400':e._posicao===3?'text-amber-700':'text-slate-300'}`}>{e._posicao<=3?medalhas[e._posicao-1]:`${e._posicao}º`}</span>
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-bold text-slate-800 truncate">{e.escola}</p>
                         <p className="text-[11px] text-slate-500">{e.polo} · {e.total} alunos</p>
