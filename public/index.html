@@ -470,6 +470,7 @@ const ViewPolo = ({ appData, poloData, onDrillDown }) => {
       <GraficoComparativo dados={chartData} titulo={`Escolas — ${poloData?.polo}`}/>
 
       {/* Ranking de escolas do polo */}
+      <div className="pointer-events-none">
       <MiniRanking
         titulo={`Ranking de Escolas — ${poloData?.polo}`}
         itens={rankingEscolas}
@@ -486,6 +487,7 @@ const ViewPolo = ({ appData, poloData, onDrillDown }) => {
           </div>
         )}
       />
+      </div>
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-4 py-3 border-b border-slate-100"><h3 className="font-bold text-lotus-dark">Escolas do Polo</h3><p className="text-xs text-slate-400 mt-0.5">Toque para detalhar</p></div>
         <div className="divide-y divide-slate-100">
@@ -854,6 +856,75 @@ const ViewTurma = ({ appData, turmaData, onVerAluno }) => {
   );
 };
 
+// ── CardHabilidade — card expansível com estado próprio (sem violar Hooks) ──
+const CardHabilidade = ({ item }) => {
+  const [aberto, setAberto] = useState(false);
+  const bgCard = item.acertos<30?'bg-rose-50 border-rose-200':item.acertos<50?'bg-amber-50 border-amber-200':'bg-yellow-50 border-yellow-200';
+  const badge  = item.acertos<30?'bg-rose-200 text-rose-700':item.acertos<50?'bg-amber-200 text-amber-700':'bg-yellow-200 text-yellow-700';
+  const valCor = item.acertos<30?'text-rose-600':item.acertos<50?'text-amber-600':'text-yellow-600';
+  return (
+    <div className={`rounded-xl border overflow-hidden ${bgCard}`}>
+      <button onClick={()=>setAberto(!aberto)} className="w-full text-left p-3 flex items-start gap-2">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap mb-1">
+            <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${badge}`}>
+              {item.acertos<30?'CRÍTICO':item.acertos<50?'FRACO':'PARCIAL'}
+            </span>
+            <span className="text-xs font-bold text-lotus-blue">{item.habilidade.split(' ')[0]}</span>
+          </div>
+          <p className="text-xs text-slate-600 leading-snug">{item.habilidade.split(' ').slice(1).join(' ')}</p>
+          <div className="mt-2"><BarraAcerto valor={item.acertos}/></div>
+        </div>
+        <div className="shrink-0 flex flex-col items-end gap-1 ml-2">
+          <span className={`text-base font-black ${valCor}`}>{fmtP(item.acertos)}</span>
+          <p className="text-[10px] text-slate-400">da turma</p>
+          <div className={`w-6 h-6 rounded-full flex items-center justify-center mt-1 ${aberto?'bg-lotus-blue text-white':'bg-white/70 text-slate-400'}`}>
+            <svg className="w-3 h-3" style={{transform:aberto?'rotate(180deg)':'rotate(0deg)',transition:'transform 0.2s'}}
+              fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </div>
+        </div>
+      </button>
+      {aberto&&(
+        <div className="border-t border-white/60 bg-white/50 px-3 pb-4 pt-3 space-y-3">
+          <div className="rounded-lg p-2.5 bg-white border border-slate-100">
+            <p className="text-[11px] font-bold uppercase text-slate-500 mb-1.5">📊 Desempenho da Turma</p>
+            {item.acertos<30&&<p className="text-xs text-rose-600 font-semibold">🚨 Menos de 1 em 3 alunos acertou — intervenção urgente necessária.</p>}
+            {item.acertos>=30&&item.acertos<50&&<p className="text-xs text-amber-600 font-semibold">⚠️ Menos da metade da turma demonstrou domínio desta habilidade.</p>}
+            {item.acertos>=50&&<p className="text-xs text-yellow-700 font-semibold">📋 Parte da turma ainda tem dificuldade nesta habilidade.</p>}
+          </div>
+          {item.distratores&&Object.keys(item.distratores).length>0&&(
+            <div>
+              <p className="text-[11px] font-bold uppercase text-slate-500 mb-1.5">🔍 Como a Turma Respondeu — Gabarito: <span className="text-emerald-600 font-black">{item.gabarito}</span></p>
+              <div className="space-y-1.5">
+                {['A','B','C','D'].map(alt=>(
+                  <div key={alt} className="flex items-center gap-1.5 text-xs">
+                    <span className={`w-5 h-5 rounded flex items-center justify-center font-bold text-white text-[10px] shrink-0 ${alt===item.gabarito?'bg-emerald-600':'bg-slate-400'}`}>{alt}</span>
+                    <div className="flex-1 bg-slate-200 rounded-full h-1.5">
+                      <div className={`h-1.5 rounded-full ${alt===item.gabarito?'bg-emerald-500':(item.distratores[alt]||0)>25?'bg-rose-400':'bg-slate-300'}`}
+                        style={{width:`${Math.min(100,item.distratores[alt]||0)}%`}}/>
+                    </div>
+                    <span className="w-10 text-right font-bold text-slate-600">{fmtP(item.distratores[alt]||0)}</span>
+                    {alt!==item.gabarito&&(item.distratores[alt]||0)>25&&<span className="text-[9px] text-rose-500 font-bold">erro comum</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          <SugestaoIntervencao
+            acertos={item.acertos}
+            branco={item.branco||0}
+            habilidade={item.habilidade}
+            distratorPrincipal={item.distratorPrincipal||null}
+            distratores={item.distratores||{}}
+          />
+        </div>
+      )}
+    </div>
+  );
+};
+
 const ViewAluno = ({ aluno, appData }) => {
   if (!aluno) return null;
   const sc=STATUS[aluno.status]||STATUS.Adequado;
@@ -977,73 +1048,10 @@ const ViewAluno = ({ aluno, appData }) => {
                   }
                 </p>
                 <div className="space-y-2">
-                  {criticos.map((item,i)=>{
-                    const [expItem,setExpItem]=useState(false);
-                    const bgCard=item.acertos<30?'bg-rose-50 border-rose-200':item.acertos<50?'bg-amber-50 border-amber-200':'bg-yellow-50 border-yellow-200';
-                    const badge=item.acertos<30?'bg-rose-200 text-rose-700':item.acertos<50?'bg-amber-200 text-amber-700':'bg-yellow-200 text-yellow-700';
-                    const valCor=item.acertos<30?'text-rose-600':item.acertos<50?'text-amber-600':'text-yellow-600';
-                    return (
-                      <div key={i} className={`rounded-xl border overflow-hidden ${bgCard}`}>
-                        <button onClick={()=>setExpItem(!expItem)} className="w-full text-left p-3 flex items-start gap-2">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5 flex-wrap mb-1">
-                              <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${badge}`}>
-                                {item.acertos<30?'CRÍTICO':item.acertos<50?'FRACO':'PARCIAL'}
-                              </span>
-                              <span className="text-xs font-bold text-lotus-blue">{item.habilidade.split(' ')[0]}</span>
-                            </div>
-                            <p className="text-xs text-slate-600 leading-snug">{item.habilidade.split(' ').slice(1).join(' ')}</p>
-                            <div className="mt-2"><BarraAcerto valor={item.acertos}/></div>
-                          </div>
-                          <div className="shrink-0 flex flex-col items-end gap-1 ml-2">
-                            <span className={`text-base font-black ${valCor}`}>{fmtP(item.acertos)}</span>
-                            <p className="text-[10px] text-slate-400">da turma</p>
-                            <div className={`w-6 h-6 rounded-full flex items-center justify-center mt-1 ${expItem?'bg-lotus-blue text-white':'bg-white/70 text-slate-400'}`}>
-                              <svg className="w-3 h-3" style={{transform:expItem?'rotate(180deg)':'rotate(0deg)',transition:'transform 0.2s'}} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7"/>
-                              </svg>
-                            </div>
-                          </div>
-                        </button>
-                        {expItem&&(
-                          <div className="border-t border-white/60 bg-white/50 px-3 pb-4 pt-3 space-y-3">
-                            <div className="rounded-lg p-2.5 bg-white border border-slate-100">
-                              <p className="text-[11px] font-bold uppercase text-slate-500 mb-1.5">📊 Desempenho da Turma</p>
-                              {item.acertos<30&&<p className="text-xs text-rose-600 font-semibold">🚨 Menos de 1 em 3 alunos acertou — intervenção urgente necessária.</p>}
-                              {item.acertos>=30&&item.acertos<50&&<p className="text-xs text-amber-600 font-semibold">⚠️ Menos da metade da turma demonstrou domínio desta habilidade.</p>}
-                              {item.acertos>=50&&<p className="text-xs text-yellow-700 font-semibold">📋 Parte da turma ainda tem dificuldade nesta habilidade.</p>}
-                            </div>
-                            {item.distratores&&Object.keys(item.distratores).length>0&&(
-                              <div>
-                                <p className="text-[11px] font-bold uppercase text-slate-500 mb-1.5">🔍 Como a Turma Respondeu — Gabarito: <span className="text-emerald-600 font-black">{item.gabarito}</span></p>
-                                <div className="space-y-1.5">
-                                  {['A','B','C','D'].map(alt=>(
-                                    <div key={alt} className="flex items-center gap-1.5 text-xs">
-                                      <span className={`w-5 h-5 rounded flex items-center justify-center font-bold text-white text-[10px] shrink-0 ${alt===item.gabarito?'bg-emerald-600':'bg-slate-400'}`}>{alt}</span>
-                                      <div className="flex-1 bg-slate-200 rounded-full h-1.5">
-                                        <div className={`h-1.5 rounded-full ${alt===item.gabarito?'bg-emerald-500':(item.distratores[alt]||0)>25?'bg-rose-400':'bg-slate-300'}`}
-                                          style={{width:`${Math.min(100,item.distratores[alt]||0)}%`}}/>
-                                      </div>
-                                      <span className="w-10 text-right font-bold text-slate-600">{fmtP(item.distratores[alt]||0)}</span>
-                                      {alt!==item.gabarito&&(item.distratores[alt]||0)>25&&<span className="text-[9px] text-rose-500 font-bold">erro comum</span>}
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                            <SugestaoIntervencao
-                              acertos={item.acertos}
-                              branco={item.branco||0}
-                              habilidade={item.habilidade}
-                              distratorPrincipal={item.distratorPrincipal||null}
-                              distratores={item.distratores||{}}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+                  {criticos.map((item,i)=>(
+                    <CardHabilidade key={i} item={item}/>
+                  ))}
+                 </div>
               </div>
             )}
 
