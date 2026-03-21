@@ -334,7 +334,7 @@ const ViewRede = ({ appData, onDrillDown }) => {
         <div className="px-4 py-3 border-b border-slate-100"><h3 className="font-bold text-lotus-dark">Polos Municipais</h3><p className="text-xs text-slate-400 mt-0.5">Toque para detalhar</p></div>
         <div className="divide-y divide-slate-100">
           {polos.length===0&&<p className="text-center py-8 text-slate-400 text-sm">Nenhum dado.</p>}
-          {polos.map(p=>{const dif=(p.aval1||0)-(p.prepara||0);return(
+          {[...polos].sort((a,b)=>(b.aval1||0)-(a.aval1||0)).map(p=>{const dif=(p.aval1||0)-(p.prepara||0);return(
             <button key={p.id} onClick={()=>onDrillDown('polo',p)} className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-slate-50 active:bg-slate-100 transition-colors">
               <div className="flex-1 min-w-0 flex flex-col lg:flex-row lg:items-center lg:gap-6">
                 <div className="min-w-0 lg:flex-1">
@@ -491,7 +491,7 @@ const ViewPolo = ({ appData, poloData, onDrillDown }) => {
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-4 py-3 border-b border-slate-100"><h3 className="font-bold text-lotus-dark">Escolas do Polo</h3><p className="text-xs text-slate-400 mt-0.5">Toque para detalhar</p></div>
         <div className="divide-y divide-slate-100">
-          {escolas.map(e=>{const dif=(e.aval1||0)-(e.prepara||0);return(
+          {[...escolas].sort((a,b)=>(b.aval1||0)-(a.aval1||0)).map(e=>{const dif=(e.aval1||0)-(e.prepara||0);return(
             <button key={e.id} onClick={()=>onDrillDown('escola',e)} className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-slate-50 active:bg-slate-100 transition-colors">
               <div className="flex-1 min-w-0 flex flex-col lg:flex-row lg:items-center lg:gap-6">
                 <p className="font-bold text-lotus-blue text-sm lg:flex-1">{e.escola}</p>
@@ -746,7 +746,7 @@ const ViewTurma = ({ appData, turmaData, onVerAluno }) => {
                 <p className="text-xs text-slate-400 text-center max-w-xs">Tente mudar o filtro de status ou verifique se há alunos cadastrados nesta turma.</p>
               </div>
             )}
-              {lista.map((a,i)=>{const sc=STATUS[a.status]||STATUS.Adequado;return(
+              {[...lista].sort((x,y)=>(y.geralAtual||0)-(x.geralAtual||0)).map((a,i)=>{const sc=STATUS[a.status]||STATUS.Adequado;return(
                 <button key={i} onClick={()=>onVerAluno(a)} className="w-full text-left px-4 py-3.5 flex items-center gap-3 hover:bg-slate-50 active:bg-slate-100 transition-colors">
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-slate-800 text-sm truncate">{a.nome}</p>
@@ -1942,6 +1942,67 @@ const ViewSobre = () => {
 
 
 // ── VIEW: RANKINGS ────────────────────────────────────────────────────────────
+// ── GrupoRanking — grupo colapsável por posição ─────────────────────────────
+const GrupoRanking = ({ grupo, onVerAluno }) => {
+  const [aberto, setAberto] = useState(grupo.posicao <= 3);
+  const medalhas = ['🥇','🥈','🥉'];
+  const isTop = grupo.posicao <= 3;
+  const isSingle = grupo.alunos.length === 1;
+  const bgPos = grupo.posicao===1?'bg-yellow-50 border-l-4 border-l-yellow-400'
+              : grupo.posicao===2?'bg-slate-50 border-l-4 border-l-slate-400'
+              : grupo.posicao===3?'bg-amber-50 border-l-4 border-l-amber-500':'';
+  return (
+    <div className={bgPos}>
+      <div
+        className={`flex items-center gap-3 px-4 py-3 ${!isSingle?'cursor-pointer hover:bg-black/5':''} transition-colors`}
+        onClick={!isSingle?()=>setAberto(!aberto):undefined}
+      >
+        <div className="shrink-0 w-8 text-center">
+          {isTop?<span className="text-xl">{medalhas[grupo.posicao-1]}</span>
+                :<span className="text-sm font-black text-slate-400">{grupo.posicao}º</span>}
+        </div>
+        <div className="flex-1 min-w-0">
+          {isSingle?(
+            <button onClick={()=>onVerAluno&&onVerAluno(grupo.alunos[0])} className="w-full text-left">
+              <p className="text-sm font-bold text-slate-800 truncate">{grupo.alunos[0].nome}</p>
+              <p className="text-[11px] text-slate-400">{grupo.alunos[0].turma} · {grupo.alunos[0].escola}</p>
+            </button>
+          ):(
+            <div>
+              <p className="text-sm font-bold text-lotus-dark">{grupo.alunos.length} alunos empatados</p>
+              <p className="text-[11px] text-slate-400">
+                {grupo.alunos.slice(0,3).map(a=>a.nome.split(' ')[0]).join(', ')}{grupo.alunos.length>3?` +${grupo.alunos.length-3}`:''}
+              </p>
+            </div>
+          )}
+        </div>
+        <div className="shrink-0 text-right">
+          <span className={`text-lg font-black ${notaColor(grupo.nota)}`}>{fmt(grupo.nota)}</span>
+          {!isSingle&&<div className="flex justify-end mt-0.5"><svg className="w-3.5 h-3.5 text-slate-400" style={{transform:aberto?'rotate(180deg)':'rotate(0)',transition:'transform 0.2s'}} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7"/></svg></div>}
+        </div>
+      </div>
+      {!isSingle&&aberto&&(
+        <div className="border-t border-white/60 bg-white/60 divide-y divide-slate-100">
+          {grupo.alunos.map((a,i)=>(
+            <button key={i} onClick={()=>onVerAluno&&onVerAluno(a)}
+              className="w-full text-left px-4 py-2.5 flex items-center gap-3 hover:bg-slate-50 transition-colors">
+              <div className="w-8 shrink-0"/>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-slate-800 truncate">{a.nome}</p>
+                <p className="text-[11px] text-slate-400">{a.turma} · {a.escola}</p>
+              </div>
+              <div className="shrink-0 text-right">
+                <p className="text-[11px] text-slate-400">LP {fmt(a.lp2)} · Mat {fmt(a.ma2)}</p>
+                <p className={`text-xs font-bold ${STATUS[a.status]?.text||''}`}>{a.status}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const ViewRankings = ({ appData, onVerAluno, setBreadcrumbs }) => {
   const medalhas = ['🥇','🥈','🥉'];
   const todosAlunos = useMemo(()=>appData?.alunosPorTurma?Object.values(appData.alunosPorTurma).flat():[], [appData]);
@@ -2135,120 +2196,59 @@ const ViewRankings = ({ appData, onVerAluno, setBreadcrumbs }) => {
       </div>
 
       {/* ── CARD RANKING ALUNOS ── */}
+      {/* ── RANKING DE ALUNOS — grupos colapsáveis por posição ── */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <button onClick={()=>setAbrirAlunos(!abrirAlunos)}
-          className="w-full px-5 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors text-left">
-          <div className="flex-1 min-w-0">
-            <h2 className="font-black text-lotus-dark text-base">🏆 Ranking de Alunos</h2>
-            <p className="text-xs text-slate-400 mt-0.5">Todos os alunos ordenados pela maior nota geral</p>
-            {!abrirAlunos && rankingAlunos.length > 0 && (
-              <div className="flex items-center gap-3 mt-2 flex-wrap">
-                {rankingAlunos.slice(0,3).map((a,i)=>(
-                  <span key={i} className="flex items-center gap-1 text-xs">
-                    <span>{medalhas[i]}</span>
-                    <span className="font-bold text-lotus-dark truncate max-w-[120px]">{a.nome.split(' ').slice(0,2).join(' ')}</span>
-                    <span className={`font-black ${notaColor(a.geralAtual)}`}>{fmt(a.geralAtual)}</span>
-                  </span>
-                ))}
-                <span className="text-[11px] text-slate-500">· {rankingAlunos.length} alunos</span>
-              </div>
-            )}
-          </div>
-          <div className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all ml-4 ${abrirAlunos?'bg-lotus-blue text-white':'bg-slate-100 text-slate-400'}`}>
-            <svg className="w-4 h-4" style={{transform:abrirAlunos?'rotate(180deg)':'rotate(0deg)',transition:'transform 0.2s'}} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7"/>
-            </svg>
-          </div>
-        </button>
-        {abrirAlunos && (
-          <div className="border-t border-slate-100">
-            <div className="px-5 py-3 border-b border-slate-100 flex flex-wrap gap-2">
-              <div className="flex flex-wrap gap-1.5 items-center">
-                <span className="text-[11px] font-bold text-slate-500 uppercase">Ano:</span>
-                {anosRank.slice(0,6).map(a=>(
-                  <button key={a} onClick={()=>{setFiltroAnoRank(a);setLimitRank(10);}}
-                    className={`text-[10px] px-2.5 py-2 rounded-full font-bold border transition-colors min-h-[36px] ${filtroAnoRank===a?'bg-lotus-blue text-white border-lotus-blue':'bg-white text-slate-500 border-slate-200'}`}>
-                    {a==='todos'?'Todos':a}
-                  </button>
-                ))}
-              </div>
-              <div className="flex flex-wrap gap-1.5 items-center">
-                <span className="text-[11px] font-bold text-slate-500 uppercase">Status:</span>
-                {['todos','Avançado','Adequado','Atenção','Risco'].map(s=>{
-                  const sc=STATUS[s]||null;
-                  return (
-                    <button key={s} onClick={()=>{setFiltroStatus(s);setLimitRank(10);}}
-                      className={`text-[10px] px-2.5 py-2 rounded-full font-bold border transition-colors min-h-[36px] ${filtroStatus===s?sc?`${sc.bg} ${sc.text} border-transparent`:'bg-lotus-blue text-white border-lotus-blue':sc?`bg-white ${sc.text} border-slate-200`:'bg-white text-slate-500 border-slate-200'}`}>
-                      {s==='todos'?'Todos':s}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            <div className="p-4">
-              <Podio itens={rankingAlunos.slice(0,3)} renderCard={(a,pos,isFirst)=>{
-                const sc=STATUS[a.status]||STATUS.Adequado;
-                return (
-                  <div onClick={()=>onVerAluno&&onVerAluno(a)} className="cursor-pointer w-full">
-                    <p className="text-xl mb-1">{medalhas[pos-1]}</p>
-                    <p className={`font-black leading-tight ${isFirst?'text-xs':'text-[11px]'} text-lotus-dark`}>{a.nome.split(' ').slice(0,2).join(' ')}</p>
-                    <p className="text-[11px] text-slate-500 mt-0.5">{a.turma}</p>
-                    <p className={`font-black mt-1 ${isFirst?'text-xl text-yellow-600':'text-lg text-lotus-blue'}`}>{fmt(a.geralAtual)}</p>
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold mt-1 ${sc.bg} ${sc.text}`}>
-                      <span className={`w-1 h-1 rounded-full ${sc.dot}`}/>{a.status}
-                    </span>
-                  </div>
-                );
-              }}/>
-              <div className="rounded-xl overflow-hidden border border-slate-100">
-                <div className="hidden lg:grid px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 bg-slate-50 border-b border-slate-200"
-                  style={{gridTemplateColumns:'40px 1fr 90px 70px 70px 80px 80px'}}>
-                  <span>#</span><span>Aluno</span><span>Turma</span>
-                  <span className="text-center">📖 LP</span><span className="text-center">🔢 Mat</span>
-                  <span className="text-center">Status</span><span className="text-right">Geral</span>
-                </div>
-                {rankingAlunos.slice(0,limitRank).map((a,i)=>{
-                  const sc=STATUS[a.status]||STATUS.Adequado;
-                  return (
-                    <div key={i} onClick={()=>onVerAluno&&onVerAluno(a)} className={`border-b border-slate-100 last:border-0 ${a._posicao<=3?'bg-white':'hover:bg-slate-50'} hover:bg-blue-50 transition-colors cursor-pointer group`}>
-                      <div className="hidden lg:grid px-4 py-2.5 items-center cursor-pointer"
-                        onClick={()=>onVerAluno&&onVerAluno(a)}
-                        style={{gridTemplateColumns:'40px 1fr 90px 70px 70px 80px 80px'}}>
-                        <span className={`text-sm font-black ${a._posicao===1?'text-yellow-500':a._posicao===2?'text-slate-400':a._posicao===3?'text-amber-700':'text-slate-300'}`}>{a._posicao<=3?medalhas[a._posicao-1]:`${a._posicao}º`}</span>
-                        <div className="min-w-0"><p className="text-xs font-bold text-slate-800 truncate">{a.nome}</p><p className="text-[11px] text-slate-500 truncate">{a.escola?.length>26?a.escola.slice(0,26)+'…':a.escola}</p></div>
-                        <span className="text-[10px] text-slate-500 font-semibold">{a.turma?.replace(' Ano','')}</span>
-                        <span className={`text-xs font-black text-center ${notaColor(a.lp2)}`}>{fmt(a.lp2)}</span>
-                        <span className={`text-xs font-black text-center ${notaColor(a.ma2)}`}>{fmt(a.ma2)}</span>
-                        <span className={`text-[10px] font-bold text-center ${sc.text}`}>{a.status}</span>
-                        <span className={`text-sm font-black text-right ${notaColor(a.geralAtual)}`}>{fmt(a.geralAtual)}</span>
-                      </div>
-                      <div className="lg:hidden px-4 py-3 flex items-center gap-3 cursor-pointer" onClick={()=>onVerAluno&&onVerAluno(a)}>
-                        <span className={`text-base font-black shrink-0 w-7 ${a._posicao===1?'text-yellow-500':a._posicao===2?'text-slate-400':a._posicao===3?'text-amber-700':'text-slate-300'}`}>{a._posicao<=3?medalhas[a._posicao-1]:`${a._posicao}º`}</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-bold text-slate-800 truncate">{a.nome}</p>
-                          <p className="text-[11px] text-slate-500">{a.turma}{a.escola ? ' · '+a.escola : ''}</p>
-                          <div className="flex gap-3 mt-0.5 text-[10px]">
-                            <span className={`font-bold ${notaColor(a.lp2)}`}>LP {fmt(a.lp2)}</span>
-                            <span className={`font-bold ${notaColor(a.ma2)}`}>Mat {fmt(a.ma2)}</span>
-                            <span className={`font-bold ${sc.text}`}>{a.status}</span>
-                          </div>
-                        </div>
-                        <span className={`text-lg font-black shrink-0 ${notaColor(a.geralAtual)}`}>{fmt(a.geralAtual)}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              {rankingAlunos.length > limitRank && (
-                <button onClick={()=>setLimitRank(l=>l+10)}
-                  className="w-full mt-3 py-2.5 text-xs font-bold text-lotus-blue border border-lotus-blue-20 rounded-xl hover:bg-lotus-blue hover:text-white transition-all">
-                  Ver mais {Math.min(10, rankingAlunos.length-limitRank)} alunos ↓
-                </button>
-              )}
-              <p className="text-center text-[11px] text-slate-500 mt-3">{rankingAlunos.length} alunos · mostrando os {Math.min(limitRank,rankingAlunos.length)} melhores · <span className="text-lotus-blue font-semibold">toque para ver detalhes</span></p>
-            </div>
-          </div>
-        )}
+        {/* Cabeçalho */}
+        <div className="px-4 py-3.5 border-b border-slate-100">
+          <h2 className="font-black text-lotus-dark text-base">🏆 Ranking de Alunos</h2>
+          <p className="text-xs text-slate-400 mt-0.5">Todos os alunos ordenados pela maior nota geral</p>
+        </div>
+
+        {/* Filtros */}
+        <div className="px-4 py-3 border-b border-slate-100 flex flex-wrap gap-2 items-center">
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">ANO:</span>
+          {anosRank.map(a=>(
+            <button key={a} onClick={()=>setFiltroAnoRank(a)}
+              className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${filtroAnoRank===a?'bg-lotus-blue text-white':'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
+              {a==='todos'?'Todos':a}
+            </button>
+          ))}
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider ml-2">STATUS:</span>
+          {['todos','Avançado','Adequado','Atenção','Risco'].map(s=>(
+            <button key={s} onClick={()=>setFiltroStatus(s)}
+              className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${filtroStatus===s?'bg-lotus-blue text-white':s==='Avançado'?'bg-emerald-50 text-emerald-600 hover:bg-emerald-100':s==='Adequado'?'bg-blue-50 text-blue-600 hover:bg-blue-100':s==='Atenção'?'bg-amber-50 text-amber-600 hover:bg-amber-100':s==='Risco'?'bg-rose-50 text-rose-600 hover:bg-rose-100':'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
+              {s==='todos'?'Todos':s}
+            </button>
+          ))}
+        </div>
+
+        {/* Grupos colapsáveis por posição */}
+        <div className="divide-y divide-slate-100">
+          {(()=>{
+            // Agrupar alunos por nota (posição sequencial)
+            const grupos = [];
+            rankingAlunos.forEach((a,i) => {
+              if(i===0 || a.geralAtual !== rankingAlunos[i-1].geralAtual) {
+                grupos.push({ posicao: grupos.length+1, nota: a.geralAtual, alunos: [a] });
+              } else {
+                grupos[grupos.length-1].alunos.push(a);
+              }
+            });
+            return grupos.map((grupo, gi) => (
+              <GrupoRanking
+                key={gi}
+                grupo={grupo}
+                onVerAluno={onVerAluno}
+              />
+            ));
+          })()}
+          {rankingAlunos.length===0 && (
+            <p className="text-center py-8 text-slate-400 text-sm">Nenhum aluno encontrado.</p>
+          )}
+        </div>
+        <p className="text-center text-[11px] text-slate-400 py-3 border-t border-slate-100">
+          {rankingAlunos.length} alunos · {(()=>{ const grupos=[]; rankingAlunos.forEach((a,i)=>{ if(i===0||a.geralAtual!==rankingAlunos[i-1].geralAtual) grupos.push(1); else grupos[grupos.length-1]++; }); return grupos.length; })()} posições diferentes
+        </p>
       </div>
 
     </div>
