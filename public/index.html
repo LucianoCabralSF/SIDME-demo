@@ -105,6 +105,14 @@
             .kpi-grid { grid-template-columns: repeat(2, 1fr) !important; }
         }
     </style>
+
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="/manifest-demo.json">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="SIDME Demo">
+  <meta name="theme-color" content="#4a5c94">
 </head>
 <body>
 <div id="root"></div>
@@ -411,8 +419,8 @@ const MiniRanking = ({ titulo, itens, renderLinha, emptyMsg='Sem dados suficient
               <div className="divide-y divide-slate-50">
                 {visiveis.map((item,i)=>(
                   <div key={i} className={`flex items-center gap-3 px-4 py-2.5 ${i<3?'bg-white':''}`}>
-                    <span className={`text-sm font-black w-7 shrink-0 ${i===0?'text-yellow-500':i===1?'text-slate-400':i===2?'text-amber-700':'text-slate-300'}`}>
-                      {i<3?medalhas[i]:`${i+1}º`}
+                    <span className={`text-sm font-black w-7 shrink-0 ${a._posicao===1?'text-yellow-500':a._posicao===2?'text-slate-400':a._posicao===3?'text-amber-700':'text-slate-300'}`}>
+                      {a._posicao<=3?medalhas[a._posicao-1]:`${a._posicao}º`}
                     </span>
                     {renderLinha(item, i)}
                   </div>
@@ -528,7 +536,12 @@ const ViewEscola = ({ appData, escolaData, onDrillDown }) => {
   const rankingAlunos = useMemo(()=>todosAlunos
     .filter(a=>a.geralAtual!=null)
     .sort((a,b)=>(b.geralAtual||0)-(a.geralAtual||0))
-    .map(a=>({...a, _label:a.nome.split(' ').slice(0,2).join(' '), _sub:a.turma, _valor:fmt(a.geralAtual)})),
+    .map((a,_,arr)=>{
+      // Posição sequencial por grupo de nota: notas distintas recebem 1º, 2º, 3º...
+      const notasDistintas = [...new Set(arr.map(x=>x.geralAtual||0))].sort((x,y)=>y-x);
+      const posicao = notasDistintas.indexOf(a.geralAtual||0) + 1;
+      return {...a, _label:a.nome.split(' ').slice(0,2).join(' '), _sub:a.turma, _valor:fmt(a.geralAtual), _posicao:posicao};
+    }),
   [todosAlunos]);
 
   return (
@@ -642,7 +655,7 @@ const ViewEscola = ({ appData, escolaData, onDrillDown }) => {
                 </div>
 
                 {/* Layout mobile: vertical */}
-                <div className="lg:hidden px-4 py-3 flex items-center gap-3">
+                <div className="lg:hidden px-4 py-3 flex items-center gap-3 cursor-pointer" onClick={()=>onVerAluno&&onVerAluno(a)}>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-lotus-blue text-sm">{t.turma}</span>
@@ -793,8 +806,8 @@ const ViewTurma = ({ appData, turmaData, onVerAluno }) => {
                 return (
                   <div key={i} className={`grid px-4 py-2.5 items-center border-b border-slate-50 last:border-0 ${i<3?'bg-white':i%2===0?'bg-slate-50/50':''}`}
                     style={{gridTemplateColumns:'36px 1fr 64px 64px 60px 36px'}}>
-                    <span className={`text-sm font-black ${i===0?'text-yellow-500':i===1?'text-slate-400':i===2?'text-amber-700':'text-slate-300'}`}>
-                      {i<3?medalhas[i]:`${i+1}º`}
+                    <span className={`text-sm font-black ${a._posicao===1?'text-yellow-500':a._posicao===2?'text-slate-400':a._posicao===3?'text-amber-700':'text-slate-300'}`}>
+                      {a._posicao<=3?medalhas[a._posicao-1]:`${a._posicao}º`}
                     </span>
                     <div className="min-w-0">
                       <p className="text-xs font-bold text-slate-800 truncate">{a.nome}</p>
@@ -1921,27 +1934,57 @@ const ViewSobre = () => {
 
 
 // ── VIEW: RANKINGS ────────────────────────────────────────────────────────────
-const ViewRankings = ({ appData }) => {
+const ViewRankings = ({ appData, onVerAluno, setBreadcrumbs }) => {
   const medalhas = ['🥇','🥈','🥉'];
   const todosAlunos = useMemo(()=>appData?.alunosPorTurma?Object.values(appData.alunosPorTurma).flat():[], [appData]);
   const polos = appData?.rede||[];
   const todasEscolas = useMemo(()=>appData?.escolasPorPolo?Object.values(appData.escolasPorPolo).flat():[], [appData]);
 
   // Pódio reutilizável
-  const Podio = ({ itens, renderCard }) => (
-    itens.length >= 3 ? (
-      <div className="grid grid-cols-3 gap-2 mb-4 items-end">
-        {[itens[1],itens[0],itens[2]].map((item,i)=>{
-          const pos=[2,1,3][i]; const isFirst=pos===1;
-          return (
-            <div key={i} className={`rounded-xl p-2.5 text-center border-2 ${isFirst?'border-yellow-400 bg-yellow-50':'border-slate-200 bg-slate-50'}`}>
-              {renderCard(item,pos,isFirst)}
-            </div>
-          );
-        })}
+  const Podio = ({ itens, renderCard }) => {
+    // Agrupar por posição (empates ficam juntos)
+    const grupos = [];
+    let posAtual = 1;
+    itens.forEach((item, i) => {
+      if (i === 0) { grupos.push({ pos: 1, itens: [item] }); return; }
+      if (item.geralAtual === itens[i-1].geralAtual) {
+        grupos[grupos.length-1].itens.push(item);
+      } else {
+        posAtual = i + 1;
+        grupos.push({ pos: posAtual, itens: [item] });
+      }
+    });
+    // Pegar só o pódio (posições 1, 2, 3)
+    const g1 = grupos.find(g=>g.pos===1)||null;
+    const g2 = grupos.find(g=>g.pos>1 && !grupos.find(gg=>gg.pos>1&&gg.pos<g.pos))||null;
+    const g3 = grupos.find(g=>g.pos>( g2?g2.pos:1) && !grupos.find(gg=>gg.pos>(g2?g2.pos:1)&&gg.pos<g.pos))||null;
+    if (!g1) return null;
+    const cols = [g2,g1,g3].filter(Boolean);
+    if (cols.length < 2) return null;
+    return (
+      <div className="mb-4">
+        <div className={`grid gap-2 items-end`} style={{gridTemplateColumns:`repeat(${cols.length},1fr)`}}>
+          {cols.map((grupo,ci)=>{
+            const isFirst = grupo.pos===1;
+            const border = isFirst?'border-yellow-400 bg-yellow-50':grupo.pos===2?'border-slate-300 bg-slate-50':'border-amber-300 bg-amber-50';
+            return (
+              <div key={ci} className={`rounded-xl p-2 text-center border-2 ${border}`}>
+                <p className="text-[10px] font-black text-slate-400 mb-1">{['🥇','🥈','🥉'][grupo.pos-1]||`${grupo.pos}º`}</p>
+                {grupo.itens.length > 1 && (
+                  <p className="text-[9px] font-bold text-slate-500 mb-1 bg-white/70 rounded-full px-1.5 py-0.5">
+                    {grupo.itens.length} alunos · {fmt(grupo.itens[0].geralAtual)}
+                  </p>
+                )}
+                <div className={`space-y-1.5 ${grupo.itens.length>2?'max-h-32 overflow-y-auto':''}`}>
+                  {grupo.itens.map((item,ii)=>renderCard(item,grupo.pos,isFirst,ii))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
-    ) : null
-  );
+    );
+  };
 
   // Estados do ranking de escolas
   const [filtroPoloRank, setFiltroPoloRank] = useState('todos');
@@ -2049,10 +2092,10 @@ const ViewRankings = ({ appData }) => {
                   <span className="text-right">Média</span>
                 </div>
                 {escolasFiltradas.map((e,i)=>(
-                  <div key={i} className={`border-b border-slate-100 last:border-0 ${i<3?'bg-white':'hover:bg-slate-50'} transition-colors`}>
+                  <div key={i} className={`border-b border-slate-100 last:border-0 ${a._posicao<=3?'bg-white':'hover:bg-slate-50'} transition-colors`}>
                     <div className="hidden lg:grid px-4 py-2.5 items-center"
                       style={{gridTemplateColumns:'40px 1fr 120px 70px 70px 70px 70px 80px'}}>
-                      <span className={`text-sm font-black ${i===0?'text-yellow-500':i===1?'text-slate-400':i===2?'text-amber-700':'text-slate-300'}`}>{i<3?medalhas[i]:`${i+1}º`}</span>
+                      <span className={`text-sm font-black ${a._posicao===1?'text-yellow-500':a._posicao===2?'text-slate-400':a._posicao===3?'text-amber-700':'text-slate-300'}`}>{a._posicao<=3?medalhas[a._posicao-1]:`${a._posicao}º`}</span>
                       <div className="min-w-0"><p className="text-xs font-bold text-slate-800 truncate">{e.escola}</p><p className="text-[11px] text-slate-500">{e.total} alunos</p></div>
                       <span className="text-[10px] text-slate-500 truncate">{e.polo.length>14?e.polo.slice(0,14)+'…':e.polo}</span>
                       <span className={`text-xs font-black text-center ${notaColor(e.mediaLP)}`}>{fmt(e.mediaLP)}</span>
@@ -2061,8 +2104,8 @@ const ViewRankings = ({ appData }) => {
                       <span className="text-xs font-bold text-center text-rose-500">{e.risco}</span>
                       <span className={`text-sm font-black text-right ${notaColor(e.media)}`}>{fmt(e.media)}</span>
                     </div>
-                    <div className="lg:hidden px-4 py-3 flex items-center gap-3">
-                      <span className={`text-base font-black shrink-0 w-7 ${i===0?'text-yellow-500':i===1?'text-slate-400':i===2?'text-amber-700':'text-slate-300'}`}>{i<3?medalhas[i]:`${i+1}º`}</span>
+                    <div className="lg:hidden px-4 py-3 flex items-center gap-3 cursor-pointer" onClick={()=>onVerAluno&&onVerAluno(a)}>
+                      <span className={`text-base font-black shrink-0 w-7 ${a._posicao===1?'text-yellow-500':a._posicao===2?'text-slate-400':a._posicao===3?'text-amber-700':'text-slate-300'}`}>{a._posicao<=3?medalhas[a._posicao-1]:`${a._posicao}º`}</span>
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-bold text-slate-800 truncate">{e.escola}</p>
                         <p className="text-[11px] text-slate-500">{e.polo} · {e.total} alunos</p>
@@ -2138,7 +2181,7 @@ const ViewRankings = ({ appData }) => {
               <Podio itens={rankingAlunos.slice(0,3)} renderCard={(a,pos,isFirst)=>{
                 const sc=STATUS[a.status]||STATUS.Adequado;
                 return (
-                  <>
+                  <div onClick={()=>onVerAluno&&onVerAluno(a)} className="cursor-pointer w-full">
                     <p className="text-xl mb-1">{medalhas[pos-1]}</p>
                     <p className={`font-black leading-tight ${isFirst?'text-xs':'text-[11px]'} text-lotus-dark`}>{a.nome.split(' ').slice(0,2).join(' ')}</p>
                     <p className="text-[11px] text-slate-500 mt-0.5">{a.turma}</p>
@@ -2146,7 +2189,7 @@ const ViewRankings = ({ appData }) => {
                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold mt-1 ${sc.bg} ${sc.text}`}>
                       <span className={`w-1 h-1 rounded-full ${sc.dot}`}/>{a.status}
                     </span>
-                  </>
+                  </div>
                 );
               }}/>
               <div className="rounded-xl overflow-hidden border border-slate-100">
@@ -2159,10 +2202,11 @@ const ViewRankings = ({ appData }) => {
                 {rankingAlunos.slice(0,limitRank).map((a,i)=>{
                   const sc=STATUS[a.status]||STATUS.Adequado;
                   return (
-                    <div key={i} className={`border-b border-slate-100 last:border-0 ${i<3?'bg-white':'hover:bg-slate-50'} transition-colors`}>
-                      <div className="hidden lg:grid px-4 py-2.5 items-center"
+                    <div key={i} onClick={()=>onVerAluno&&onVerAluno(a)} className={`border-b border-slate-100 last:border-0 ${a._posicao<=3?'bg-white':'hover:bg-slate-50'} hover:bg-blue-50 transition-colors cursor-pointer group`}>
+                      <div className="hidden lg:grid px-4 py-2.5 items-center cursor-pointer"
+                        onClick={()=>onVerAluno&&onVerAluno(a)}
                         style={{gridTemplateColumns:'40px 1fr 90px 70px 70px 80px 80px'}}>
-                        <span className={`text-sm font-black ${i===0?'text-yellow-500':i===1?'text-slate-400':i===2?'text-amber-700':'text-slate-300'}`}>{i<3?medalhas[i]:`${i+1}º`}</span>
+                        <span className={`text-sm font-black ${a._posicao===1?'text-yellow-500':a._posicao===2?'text-slate-400':a._posicao===3?'text-amber-700':'text-slate-300'}`}>{a._posicao<=3?medalhas[a._posicao-1]:`${a._posicao}º`}</span>
                         <div className="min-w-0"><p className="text-xs font-bold text-slate-800 truncate">{a.nome}</p><p className="text-[11px] text-slate-500 truncate">{a.escola?.length>26?a.escola.slice(0,26)+'…':a.escola}</p></div>
                         <span className="text-[10px] text-slate-500 font-semibold">{a.turma?.replace(' Ano','')}</span>
                         <span className={`text-xs font-black text-center ${notaColor(a.lp2)}`}>{fmt(a.lp2)}</span>
@@ -2170,8 +2214,8 @@ const ViewRankings = ({ appData }) => {
                         <span className={`text-[10px] font-bold text-center ${sc.text}`}>{a.status}</span>
                         <span className={`text-sm font-black text-right ${notaColor(a.geralAtual)}`}>{fmt(a.geralAtual)}</span>
                       </div>
-                      <div className="lg:hidden px-4 py-3 flex items-center gap-3">
-                        <span className={`text-base font-black shrink-0 w-7 ${i===0?'text-yellow-500':i===1?'text-slate-400':i===2?'text-amber-700':'text-slate-300'}`}>{i<3?medalhas[i]:`${i+1}º`}</span>
+                      <div className="lg:hidden px-4 py-3 flex items-center gap-3 cursor-pointer" onClick={()=>onVerAluno&&onVerAluno(a)}>
+                        <span className={`text-base font-black shrink-0 w-7 ${a._posicao===1?'text-yellow-500':a._posicao===2?'text-slate-400':a._posicao===3?'text-amber-700':'text-slate-300'}`}>{a._posicao<=3?medalhas[a._posicao-1]:`${a._posicao}º`}</span>
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-bold text-slate-800 truncate">{a.nome}</p>
                           <p className="text-[11px] text-slate-500">{a.turma}{a.escola ? ' · '+a.escola : ''}</p>
@@ -2193,7 +2237,7 @@ const ViewRankings = ({ appData }) => {
                   Ver mais {Math.min(10, rankingAlunos.length-limitRank)} alunos ↓
                 </button>
               )}
-              <p className="text-center text-[11px] text-slate-500 mt-3">{rankingAlunos.length} alunos · mostrando os {Math.min(limitRank,rankingAlunos.length)} melhores</p>
+              <p className="text-center text-[11px] text-slate-500 mt-3">{rankingAlunos.length} alunos · mostrando os {Math.min(limitRank,rankingAlunos.length)} melhores · <span className="text-lotus-blue font-semibold">toque para ver detalhes</span></p>
             </div>
           </div>
         )}
@@ -2351,7 +2395,7 @@ const App = () => {
   const renderView=()=>{
     if(abaAtiva==='sobre') return <ViewSobre/>;
     if(abaAtiva==='faq') return <ViewFAQ municipio={appData?.municipio}/>;
-    if(abaAtiva==='rankings') return <ViewRankings appData={appData}/>;
+    if(abaAtiva==='rankings') return <ViewRankings appData={appData} onVerAluno={handleVerAluno} setBreadcrumbs={setBreadcrumbs}/>;
     if(abaAtiva==='paineis') return <ViewPaineis appData={appData} onIrParaItens={(filtro)=>{ setFiltroItens(filtro); setAbaAtiva('itens'); }} onIrParaEscola={(escola)=>{ setAbaAtiva('dados'); setBreadcrumbs([{level:'rede',label:'Rede Municipal',data:null},{level:'escola',label:escola.escola,data:escola}]); }}/>;
     if(abaAtiva==='itens') return <ViewAnaliseItens analiseItens={appData?.analiseItens} filtroExterno={filtroItens} onLimparFiltro={()=>setFiltroItens(null)}/>;
     if(!currentView){
@@ -2612,5 +2656,99 @@ const App = () => {
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </script>
+
+<script>
+// ── PWA: Registro do Service Worker ────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg => {
+        console.log('[SIDME] Service Worker registrado:', reg.scope);
+        // Verifica atualização silenciosa a cada 30 min
+        setInterval(() => reg.update(), 30 * 60 * 1000);
+      })
+      .catch(err => console.warn('[SIDME] SW falhou:', err));
+  });
+}
+
+// ── PWA: Banner "Instalar como App" ────────────────────────────────────────
+let deferredPrompt = null;
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+
+  // Mostra o banner depois de 3s para não interromper o carregamento
+  setTimeout(() => {
+    const banner = document.getElementById('pwa-install-banner');
+    if (banner) banner.style.display = 'flex';
+  }, 3000);
+});
+
+function instalarApp() {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(choice => {
+    if (choice.outcome === 'accepted') {
+      console.log('[SIDME] App instalado');
+    }
+    deferredPrompt = null;
+    const banner = document.getElementById('pwa-install-banner');
+    if (banner) banner.style.display = 'none';
+  });
+}
+
+function fecharBanner() {
+  const banner = document.getElementById('pwa-install-banner');
+  if (banner) banner.style.display = 'none';
+  // Não mostra de novo por 7 dias
+  localStorage.setItem('pwa-banner-dismissed', Date.now());
+}
+
+// Não mostra se já foi dispensado recentemente
+window.addEventListener('DOMContentLoaded', () => {
+  const dismissed = localStorage.getItem('pwa-banner-dismissed');
+  if (dismissed && Date.now() - dismissed < 7 * 24 * 60 * 60 * 1000) {
+    const banner = document.getElementById('pwa-install-banner');
+    if (banner) banner.remove();
+  }
+});
+
+// ── Notificação quando voltar online ───────────────────────────────────────
+window.addEventListener('online', () => {
+  const toast = document.getElementById('online-toast');
+  if (toast) {
+    toast.style.display = 'flex';
+    setTimeout(() => { toast.style.display = 'none'; }, 3000);
+  }
+});
+window.addEventListener('offline', () => {
+  const toast = document.getElementById('offline-toast');
+  if (toast) {
+    toast.style.display = 'flex';
+    setTimeout(() => { toast.style.display = 'none'; }, 4000);
+  }
+});
+</script>
+
+<!-- ── Banner de instalação PWA ─────────────────────────────────────────── -->
+<div id="pwa-install-banner" style="display:none;position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:9999;background:#2c375a;color:white;border-radius:16px;padding:14px 18px;box-shadow:0 8px 32px rgba(0,0,0,0.3);align-items:center;gap:12px;max-width:340px;width:calc(100% - 32px);font-family:Inter,sans-serif;">
+  <div style="font-size:28px;flex-shrink:0;">📲</div>
+  <div style="flex:1;min-width:0;">
+    <p style="font-size:13px;font-weight:800;margin:0 0 2px;">Instalar o SIDME</p>
+    <p style="font-size:11px;opacity:0.75;margin:0;">Use offline, mesmo sem internet</p>
+  </div>
+  <button onclick="instalarApp()" style="background:#d9c543;color:#2c375a;border:none;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:800;cursor:pointer;flex-shrink:0;">Instalar</button>
+  <button onclick="fecharBanner()" style="background:transparent;border:none;color:rgba(255,255,255,0.6);font-size:18px;cursor:pointer;padding:4px;line-height:1;flex-shrink:0;">×</button>
+</div>
+
+<!-- ── Toasts de conectividade ──────────────────────────────────────────── -->
+<div id="offline-toast" style="display:none;position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:9999;background:#ef4444;color:white;border-radius:12px;padding:10px 18px;box-shadow:0 4px 16px rgba(0,0,0,0.25);align-items:center;gap:8px;font-family:Inter,sans-serif;font-size:13px;font-weight:700;">
+  📡 Sem conexão — usando dados offline
+</div>
+<div id="online-toast" style="display:none;position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:9999;background:#22c55e;color:white;border-radius:12px;padding:10px 18px;box-shadow:0 4px 16px rgba(0,0,0,0.25);align-items:center;gap:8px;font-family:Inter,sans-serif;font-size:13px;font-weight:700;">
+  ✅ Conexão restaurada
+</div>
+
 </body>
 </html>
